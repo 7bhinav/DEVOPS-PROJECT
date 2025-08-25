@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "Start server",
+			"command": "npm install && node server/index.js",
+			"group": "build",
+			"problemMatcher": []
+		}
+	]
+}

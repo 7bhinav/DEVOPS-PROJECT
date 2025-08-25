@@ -24,7 +24,7 @@
   <main class="container">
     <h2>Book an Ambulance</h2>
     <div class="grid">
-      <form id="bookingForm" class="card">
+  <form id="bookingForm" class="card">
         <label>Patient Name
           <input type="text" id="patientName" required>
         </label>
@@ -43,8 +43,25 @@
           <input type="text" id="preferredHospital">
         </label>
 
+        <label>Ambulance Type
+          <select id="ambulanceType">
+            <option value="BLS">BLS</option>
+            <option value="ALS">ALS</option>
+            <option value="MICU">MICU</option>
+          </select>
+        </label>
+
+        <div class="muted">Nearby Hospitals</div>
+        <div id="nearbyList" class="nearby-list card"></div>
+
+        <div id="fareEstimate" class="muted" style="margin:8px 0;font-weight:600">Estimated fare: n/a</div>
+
         <p class="muted">Click on the map to set Pickup Location (first click) and Destination Hospital (second click).</p>
-        <div id="coords" class="coords">Pickup: <span id="pickupCoord">n/a</span> — Destination: <span id="destCoord">n/a</span></div>
+        <div id="coords" class="coords">Pickup: <span id="pickupCoord">n/a</span> — Destination: <span id="destCoord">n/a</span>
+          <button id="geoToggle" class="btn ghost" type="button" style="margin-left:12px;padding:6px 10px;font-size:0.9rem">Detect my location</button>
+          <span id="geoStatus" class="muted small" style="margin-left:10px">Not tracking</span>
+          <label style="margin-left:12px;font-weight:600;display:inline-flex;align-items:center;gap:8px"><input id="autoNearest" type="checkbox"> <span class="small muted">Auto-select nearest hospital</span></label>
+  </div>
 
         <button type="submit" class="btn primary">Confirm Booking</button>
         <div id="result" class="result" role="status" aria-live="polite"></div>

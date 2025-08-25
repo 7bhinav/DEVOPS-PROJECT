@@ -1,0 +1,376 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Ambulance Booking - Demo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+      body{background:#000;color:#fff}
+      .card{background:#111;border:1px solid #222}
+      #map{height:420px;border-radius:8px}
+      .leaflet-container{background:#000}
+  .toast{position:fixed;right:20px;top:20px;background:#111;color:#fff;padding:10px 14px;border-radius:8px;border:1px solid #333;box-shadow:0 6px 18px rgba(0,0,0,0.6);z-index:9999;transform:translateX(120%);opacity:0;transition:transform 320ms cubic-bezier(.2,.9,.2,1),opacity 320ms}
+  .toast.show{transform:translateX(0);opacity:1}
+  .confirm-card{background:linear-gradient(180deg,#0f0f0f,#0b0b0b);border:1px solid #222;padding:20px;border-radius:10px;max-width:640px}
+  .confirm-icon{width:72px;height:72px;border-radius:36px;background:#fff;color:#000;display:flex;align-items:center;justify-content:center;font-size:36px;margin-right:16px}
+  .confirm-row{display:flex;align-items:center}
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+  const {useState,useEffect,useRef} = React;
+  // read query param to allow opening admin view directly from landing
+  function isAdminQuery(){ try{ return new URLSearchParams(window.location.search).get('admin') === '1'; }catch(e){ return false; } }
+  function decodeRoleFromToken(token){ try{ const payload = JSON.parse(atob(token.split('.')[1])); return payload.role; }catch(e){ return null; } }
+
+  function App(){
+        const [token,setToken]=useState(null);
+        const [view,setView]=useState(isAdminQuery()? 'login' : 'login');
+        const [bookingId,setBookingId]=useState(null);
+
+        // on mount, restore token from localStorage if present and start SSE
+        useEffect(()=>{
+          const t = localStorage.getItem('token');
+          if(t){ setToken(t); const r = decodeRoleFromToken(t); setView(r==='admin'?'admin':'book'); }
+        },[]);
+
+        // start SSE when token available
+        useEffect(()=>{
+          if(!token) return;
+          try{
+            // EventSource will send cookies; server reads cookie to authenticate
+            const es = new EventSource('/events');
+            es.onmessage = (ev)=>{
+              try{ const j = JSON.parse(ev.data); window.dispatchEvent(new CustomEvent('sse:'+j.type, {detail:j})); }catch(e){}
+            };
+            es.onerror = ()=>{ es.close(); };
+            return ()=>es.close();
+          }catch(e){ console.warn('sse failed',e); }
+        },[token]);
+
+        function handleLogin(t,role){
+          localStorage.setItem('token', t);
+          setToken(t);
+          setView(role==='admin'?'admin':'book');
+        }
+
+        function handleLogout(){ localStorage.removeItem('token'); setToken(null); setView('login'); }
+
+        if(!token) return <Login onLogin={handleLogin} />;
+        if(view==='book') return <Booking token={token} onBooked={(id)=>{setBookingId(id); setView('confirm')}} onLogout={handleLogout} />;
+        if(view==='confirm') return <Confirm id={bookingId} token={token} onBack={()=>setView('book')} onLogout={handleLogout} />;
+        if(view==='admin') return <Admin token={token} onBack={()=>setView('book')} onLogout={handleLogout} />;
+        return null;
+      }
+
+      function Login({onLogin}){
+        const [email,setEmail]=useState(isAdminQuery() ? 'admin@example.com' : '');
+        const [password,setPassword]=useState(isAdminQuery() ? 'adminpass' : '');
+  async function submit(e){
+          e.preventDefault();
+          const r = await fetch('/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email,password})});
+          const j = await r.json();
+          if(j.token){ const payload = JSON.parse(atob(j.token.split('.')[1])); onLogin(j.token,payload.role); }
+        }
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <form onSubmit={submit} className="card p-6 rounded w-full max-w-sm">
+              <h2 className="text-xl mb-4">Login</h2>
+              <label className="block mb-2">Email<input className="w-full p-2 text-black" value={email} onChange={e=>setEmail(e.target.value)} /></label>
+              <label className="block mb-2">Password<input type="password" className="w-full p-2 text-black" value={password} onChange={e=>setPassword(e.target.value)} /></label>
+              <div className="flex justify-end"><button className="mt-2 px-4 py-2 border">Login</button></div>
+            </form>
+          </div>
+        )
+      }
+
+  function Booking({token,onBooked,onLogout}){
+        const [patient,setPatient]=useState('');
+        const [contact,setContact]=useState('');
+        const [hospitalQuery,setHospitalQuery]=useState('');
+        const [pickup,setPickup]=useState(null);
+        const [hospital,setHospital]=useState(null);
+  const mapRef = useRef(null);
+  const pickupMarker = useRef(null);
+  const hospitalMarker = useRef(null);
+  const nearbyMarkers = useRef([]);
+
+        useEffect(()=>{
+          const map = L.map('map').setView([20.5937,78.9629],5);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+          mapRef.current = map;
+          map.on('click', e=>{
+            setPickup(e.latlng);
+            if(pickupMarker.current) map.removeLayer(pickupMarker.current);
+            pickupMarker.current = L.marker(e.latlng).addTo(map).bindPopup('Pickup').openPopup();
+          });
+          return ()=>map.remove();
+        },[]);
+
+        async function searchHospital(){
+          if(!hospitalQuery) return;
+          const r = await fetch('/hospitals/search?name='+encodeURIComponent(hospitalQuery));
+          const items = await r.json();
+          if(!items[0]) return;
+          const lat=parseFloat(items[0].lat), lon=parseFloat(items[0].lon);
+          setHospital({name:items[0].name,lat,lon});
+          const map=mapRef.current;
+          if(hospitalMarker.current) map.removeLayer(hospitalMarker.current);
+          hospitalMarker.current = L.marker([lat,lon]).addTo(map).bindPopup(items[0].name).openPopup();
+          map.setView([lat,lon],14);
+        }
+
+        async function findNearby(){
+          if(!pickup) return alert('Set pickup by clicking on map first');
+          const r = await fetch(`/hospitals/nearby?lat=${pickup.lat}&lon=${pickup.lng}&radius=5000`);
+          const items = await r.json();
+          const map = mapRef.current;
+          // clear previous nearby markers
+          nearbyMarkers.current.forEach(m=>map.removeLayer(m));
+          nearbyMarkers.current = [];
+          items.forEach(it=>{
+            const m = L.marker([it.lat,it.lon]).addTo(map).bindPopup(it.name);
+            m.on('click', async ()=>{
+              setHospital({name:it.name,lat:it.lat,lon:it.lon});
+              if(hospitalMarker.current) map.removeLayer(hospitalMarker.current);
+              hospitalMarker.current = L.marker([it.lat,it.lon]).addTo(map).bindPopup(it.name).openPopup();
+              // request route from backend
+              try{
+                const rr = await fetch(`/route?fromLat=${pickup.lat}&fromLon=${pickup.lng}&toLat=${it.lat}&toLon=${it.lon}`);
+                const rj = await rr.json();
+                if(rj.geometry){
+                  if(window.routeLine) map.removeLayer(window.routeLine);
+                  window.routeLine = L.geoJSON(rj.geometry,{style:{color:'#fff'}}).addTo(map);
+                }
+                if(rj.duration){ const etaMin = Math.round(rj.duration/60); const el = document.getElementById('eta'); if(el) el.textContent = etaMin + ' min'; }
+              }catch(e){ console.warn('route failed',e); }
+            });
+            nearbyMarkers.current.push(m);
+          });
+        }
+
+        async function submit(e){
+          e.preventDefault(); if(!pickup||!hospital) return alert('Set pickup & hospital');
+          const payload = {patient_name:patient,contact_number:contact,preferred_hospital:hospital.name,pickup_lat:pickup.lat,pickup_lon:pickup.lng,hospital_lat:hospital.lat,hospital_lon:hospital.lon,eta_minutes:0};
+          const r = await fetch('/booking',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+token},body:JSON.stringify(payload)});
+          const j = await r.json(); onBooked(j.id);
+        }
+
+        return (
+          <div className="min-h-screen p-6">
+            <div className="flex justify-end mb-4"><button className="px-3 py-1 border" onClick={onLogout}>Logout</button></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="card p-4 rounded">
+                <h3 className="text-lg mb-2">Booking Form</h3>
+                <form onSubmit={submit}>
+                  <label className="block mb-2">Patient Name<input className="w-full p-2 text-black" value={patient} onChange={e=>setPatient(e.target.value)} /></label>
+                  <label className="block mb-2">Contact Number<input className="w-full p-2 text-black" value={contact} onChange={e=>setContact(e.target.value)} /></label>
+                  <label className="block mb-2">Hospital Search<input className="w-full p-2 text-black" value={hospitalQuery} onChange={e=>setHospitalQuery(e.target.value)} /></label>
+                  <div className="flex gap-2 mb-2">
+                    <button type="button" className="px-3 py-2 border" onClick={searchHospital}>Search</button>
+                    <button type="button" className="px-3 py-2 border" onClick={findNearby}>Find Nearby Hospitals</button>
+                  </div>
+                  <div className="mb-2">Pickup: {pickup?`${pickup.lat.toFixed(5)}, ${pickup.lng.toFixed(5)}`:'click map to set'}</div>
+                  <div className="mb-2">Hospital: {hospital?hospital.name:'n/a'}</div>
+                  <button className="px-4 py-2 border">Confirm Booking</button>
+                </form>
+              </div>
+              <div className="card p-4 rounded">
+                <h3 className="text-lg mb-2">Map</h3>
+                <div id="map"></div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      function Confirm({id, token, onBack, onLogout}){
+        const [booking,setBooking]=useState(null);
+        const [toast,setToast]=useState(null);
+        const [routeInfo,setRouteInfo]=useState(null);
+        const [copied,setCopied]=useState(false);
+        const mapRef = useRef(null);
+        const routeLayer = useRef(null);
+        useEffect(()=>{
+          fetch('/booking/'+id,{headers:{'content-type':'application/json','authorization': 'Bearer '+token}})
+            .then(r=>r.json()).then(setBooking)
+        },[id,token]);
+
+        useEffect(()=>{
+          if(booking){
+            setToast(`Booking confirmed — ID ${booking.id}`);
+            const t = setTimeout(()=>setToast(null),4000);
+            // attempt to fetch route summary & geometry if coords available
+            if(booking.pickup_lat && booking.hospital_lat){
+              fetch(`/route?fromLat=${booking.pickup_lat}&fromLon=${booking.pickup_lon}&toLat=${booking.hospital_lat}&toLon=${booking.hospital_lon}`)
+                .then(r=>r.json()).then(j=>{
+                  if(j && j.duration){ setRouteInfo({duration:j.duration, distance:j.distance, geometry:j.geometry}); }
+                }).catch(()=>{});
+            }
+            // listen for SSE updates to booking status
+            const handler = (ev)=>{
+              const d = ev.detail;
+              if(d && d.booking && d.booking.id === booking.id){
+                setBooking(prev=> ({...prev, status: d.booking.status}));
+                setToast(`Status updated: ${d.booking.status}`);
+                setTimeout(()=>setToast(null),3000);
+              }
+            };
+            window.addEventListener('sse:booking:update', handler);
+            return ()=>{ clearTimeout(t); window.removeEventListener('sse:booking:update', handler); };
+          }
+        },[booking]);
+
+        useEffect(()=>{ if(copied){ const t=setTimeout(()=>setCopied(false),2000); return ()=>clearTimeout(t);} },[copied]);
+
+  if(!booking) return <div className="p-8">Loading...</div>
+        const minutes = routeInfo ? Math.round(routeInfo.duration/60) : (booking.eta_minutes || null);
+        const km = routeInfo ? (routeInfo.distance/1000).toFixed(1) : null;
+        return (
+          <div className="min-h-screen p-8">
+            <div className="flex justify-end mb-4"><button className="px-3 py-1 border" onClick={onLogout}>Logout</button></div>
+            <div className="confirm-card">
+              <div className="confirm-row">
+                <div className="confirm-icon">✓</div>
+                <div>
+                  <h2 className="text-2xl mb-1">Booking Confirmed</h2>
+                  <div className="text-sm text-gray-400">We've received your request. Help is on the way.</div>
+                </div>
+              </div>
+              <div style={{marginTop:16}}>
+                <p style={{fontSize:18}}><strong>ID:</strong> <span style={{background:'#000',padding:'4px 8px',borderRadius:6}}>{booking.id}</span>
+                  <button className="ml-3 px-2 py-1 border" onClick={async ()=>{ try{ await navigator.clipboard.writeText(String(booking.id)); setCopied(true); setToast('Booking ID copied to clipboard'); const t=setTimeout(()=>setToast(null),2000); }catch(e){ setToast('Copy failed'); setTimeout(()=>setToast(null),2000);} }}>Share ID</button>
+                </p>
+                {copied && <div className="text-sm text-green-400">Copied ✓</div>}
+                <p style={{marginTop:8}}>Patient: <strong>{booking.patient_name}</strong></p>
+                <p>Contact: <strong>{booking.contact_number}</strong></p>
+                <p>Hospital: <strong>{booking.preferred_hospital || `${booking.hospital_lat},${booking.hospital_lon}`}</strong></p>
+                <p>Status: <strong>{booking.status}</strong></p>
+                {minutes !== null && (
+                  <div style={{marginTop:10}}>
+                    <strong>Estimated travel:</strong> {minutes} min {km?`• ${km} km`:''}
+                  </div>
+                )}
+                {/* small map preview */}
+                <div id="mini-map" style={{height:160,marginTop:12,borderRadius:8,overflow:'hidden'}}></div>
+                {/* initialize mini map when routeInfo.geometry present */}
+                {routeInfo && routeInfo.geometry && <MiniMap geometry={routeInfo.geometry} />}
+              </div>
+              <div className="mt-4">
+                <a className="px-3 py-2 border mr-2" href="/">Back to Home</a>
+                <button className="px-3 py-2 border" onClick={onBack}>Back to Booking</button>
+              </div>
+            </div>
+            {toast && <div className={`toast ${toast? 'show':''}`} onTouchStart={(e)=>{ e._sx = e.touches[0].clientX; }} onTouchMove={(e)=>{ const dx = e.touches[0].clientX - e._sx; e.currentTarget.style.transform = `translateX(${Math.min(dx,0)}px)`; }} onTouchEnd={(e)=>{ const dx = (e.changedTouches[0].clientX - e._sx); if(Math.abs(dx) > 80){ setToast(null); } else { e.currentTarget.style.transform = ''; } }}>
+              {toast} <button style={{marginLeft:8}} onClick={()=>setToast(null)}>✕</button>
+            </div>}
+          </div>
+        )
+      }
+
+      function MiniMap({geometry}){
+        const elRef = useRef(null);
+        useEffect(()=>{
+          const el = document.getElementById('mini-map');
+          if(!el) return;
+          const map = L.map(el, {attributionControl:false,zoomControl:false}).setView([0,0],13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+          const layer = L.geoJSON(geometry,{style:{color:'#fff',weight:3}}).addTo(map);
+          map.fitBounds(layer.getBounds(),{padding:[8,8]});
+          return ()=>{ map.remove(); };
+        },[geometry]);
+        return null;
+      }
+
+  function Admin({token,onBack,onLogout}){
+        const [bookings,setBookings]=useState([]);
+        const [hospitals,setHospitals]=useState([]);
+        const [newHosp,setNewHosp]=useState({name:'',address:'',lat:'',lon:''});
+        useEffect(()=>{fetch('/bookings',{headers:{'authorization':'Bearer '+token}}).then(r=>r.json()).then(setBookings)},[]);
+        useEffect(()=>{fetch('/hospitals').then(r=>r.json()).then(setHospitals)},[]);
+        useEffect(()=>{
+          const handler = (ev)=>{
+            const d = ev.detail;
+            if(d && d.booking){ setBookings(list=> list.map(b=> b.id===d.booking.id?{...b,status:d.booking.status}:b)); }
+          };
+          window.addEventListener('sse:booking:update', handler);
+          return ()=>window.removeEventListener('sse:booking:update', handler);
+        },[]);
+        async function deleteHospital(id){
+          if(!confirm('Delete hospital?')) return;
+          await fetch('/hospitals/'+id,{method:'DELETE',headers:{'authorization':'Bearer '+token}});
+          setHospitals(h=>h.filter(x=>x.id!==id));
+        }
+        async function updateStatus(id,status){
+          await fetch('/booking/'+id+'/status',{method:'PUT',headers:{'content-type':'application/json','authorization':'Bearer '+token},body:JSON.stringify({status})});
+          setBookings(list=>list.map(b=> b.id===id?{...b,status}:b));
+        }
+        async function addHospital(e){
+          e.preventDefault();
+          const r = await fetch('/hospitals',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+token},body:JSON.stringify({name:newHosp.name,address:newHosp.address,lat:parseFloat(newHosp.lat),lon:parseFloat(newHosp.lon),is_active:true})});
+          const j = await r.json(); setHospitals(h=>[...h,j]); setNewHosp({name:'',address:'',lat:'',lon:''});
+        }
+        return (
+          <div className="min-h-screen p-8">
+            <div className="flex justify-end mb-4"><button className="px-3 py-1 border" onClick={onLogout}>Logout</button></div>
+            <div className="card p-6">
+              <h2 className="text-lg mb-4">Admin Dashboard</h2>
+              <button className="mb-4 px-3 py-2 border" onClick={onBack}>Back</button>
+              <h3 className="mb-2">Add Hospital</h3>
+              <form onSubmit={addHospital} className="mb-4">
+                <input className="p-2 mr-2 text-black" placeholder="name" value={newHosp.name} onChange={e=>setNewHosp({...newHosp,name:e.target.value})} />
+                <input className="p-2 mr-2 text-black" placeholder="address" value={newHosp.address} onChange={e=>setNewHosp({...newHosp,address:e.target.value})} />
+                <input className="p-2 mr-2 text-black" placeholder="lat" value={newHosp.lat} onChange={e=>setNewHosp({...newHosp,lat:e.target.value})} />
+                <input className="p-2 mr-2 text-black" placeholder="lon" value={newHosp.lon} onChange={e=>setNewHosp({...newHosp,lon:e.target.value})} />
+                <button className="px-3 py-2 border">Add</button>
+              </form>
+              <h3 className="mb-2">Hospitals (cached)</h3>
+              <ul>
+                {hospitals.map(h=> (
+                  <li key={h.id} className="mb-2">
+                    <strong>{h.name}</strong>  {h.address} ({h.lat},{h.lon})
+                    <button className="ml-2 px-2 py-1 border" onClick={()=>deleteHospital(h.id)}>Delete</button>
+                    <button className="ml-2 px-2 py-1 border" onClick={async ()=>{
+                      const name = prompt('Name', h.name);
+                      if(name===null) return;
+                      const address = prompt('Address', h.address||'');
+                      if(address===null) return;
+                      const lat = prompt('Lat', h.lat||''); if(lat===null) return;
+                      const lon = prompt('Lon', h.lon||''); if(lon===null) return;
+                      const r = await fetch('/hospitals/'+h.id,{method:'PUT',headers:{'content-type':'application/json','authorization':'Bearer '+token},body:JSON.stringify({name,address,lat:parseFloat(lat),lon:parseFloat(lon)})});
+                      const updated = await r.json();
+                      setHospitals(list=>list.map(x=> x.id===updated.id?updated:x));
+                    }}>Edit</button>
+                  </li>
+                ))}
+              </ul>
+              <h3 className="mb-2">Bookings</h3>
+              <ul>
+                {bookings.map(b=> (
+                  <li key={b.id} className="mb-2">
+                    <strong>#{b.id}</strong> {b.patient_name} — <em>{b.status}</em>
+                    <div className="mt-1">
+                      <button className="px-2 py-1 border mr-1" onClick={()=>updateStatus(b.id,'Accepted')}>Accept</button>
+                      <button className="px-2 py-1 border mr-1" onClick={()=>updateStatus(b.id,'En route')}>En route</button>
+                      <button className="px-2 py-1 border mr-1" onClick={()=>updateStatus(b.id,'Completed')}>Complete</button>
+                      <button className="px-2 py-1 border" onClick={()=>updateStatus(b.id,'Cancelled')}>Cancel</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+  </body>
+</html>

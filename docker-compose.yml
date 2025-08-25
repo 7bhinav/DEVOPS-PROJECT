@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  ambulance:
+    image: ambulance-booking:latest
+    container_name: ambulance-compose
+    restart: unless-stopped
+    ports:
+      - "9001:3000"
+    volumes:
+      - ./client:/app/client:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
