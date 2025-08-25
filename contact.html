@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Contact - Ambulance Booking System</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <h1>Ambulance Booking System</h1>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/booking.html">Book</a>
+        <a href="/about.html">About</a>
+        <a href="/contact.html">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2>Contact & Emergency Numbers</h2>
+    <ul>
+      <li>Emergency: 112</li>
+      <li>Ambulance Dispatch: 101</li>
+      <li>Hospital Helpline: 1800-XXX-XXXX</li>
+    </ul>
+
+    <form id="contactForm" class="card">
+      <label>Your Name<input type="text" id="contactName"></label>
+      <label>Your Message<textarea id="contactMessage"></textarea></label>
+      <button type="submit" class="btn">Send</button>
+      <div id="contactResult" class="result" aria-live="polite"></div>
+    </form>
+  </main>
+
+  <footer class="container footer">
+    <p>&copy; Ambulance Booking System</p>
+  </footer>
+
+  <script>
+    document.getElementById('contactForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      document.getElementById('contactResult').textContent = 'Message received. We will contact you if necessary.';
+    });
+  </script>
+</body>
+</html>

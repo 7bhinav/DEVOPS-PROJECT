@@ -1,0 +1,5 @@
+# Ignore Docker containers/images local artifacts
+docker-compose.override.yml
+*.log
+node_modules/
+.DS_Store

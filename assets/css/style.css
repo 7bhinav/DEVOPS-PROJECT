@@ -1,0 +1,29 @@
+:root{
+  --primary:#d32f2f; /* red */
+  --accent:#1565c0; /* blue */
+  --bg:#ffffff;
+  --muted:#666;
+}
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; margin:0;background:var(--bg);color:#111}
+.container{max-width:980px;margin:0 auto;padding:16px}
+.site-header{background:linear-gradient(90deg,var(--primary),var(--accent));color:white}
+.site-header .container{display:flex;align-items:center;justify-content:space-between}
+.site-header nav a{color:white;margin-left:12px;text-decoration:none;font-weight:600}
+.hero{padding:40px 16px;text-align:center}
+.lead{color:var(--muted)}
+.btn{display:inline-block;padding:10px 16px;border-radius:6px;border:none;background:#eee;color:#111;text-decoration:none;cursor:pointer}
+.btn.primary{background:var(--primary);color:white}
+.grid{display:grid;grid-template-columns:1fr;gap:16px}
+.card{background:#fff;padding:12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+label{display:block;margin-bottom:8px}
+input[type=text],input[type=tel],select,textarea{width:100%;padding:8px;border-radius:6px;border:1px solid #ddd}
+.map{height:420px}
+.coords{font-size:0.9rem;color:var(--muted);margin:8px 0}
+.result{margin-top:10px;padding:8px;border-radius:6px}
+.muted{color:var(--muted)}
+.footer{padding:12px;text-align:center;color:var(--muted)}
+
+@media(min-width:800px){
+  .grid{grid-template-columns:360px 1fr}
+}

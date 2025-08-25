@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Book an Ambulance</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <h1>Ambulance Booking System</h1>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/booking.html">Book</a>
+        <a href="/about.html">About</a>
+        <a href="/contact.html">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2>Book an Ambulance</h2>
+    <div class="grid">
+      <form id="bookingForm" class="card">
+        <label>Patient Name
+          <input type="text" id="patientName" required>
+        </label>
+        <label>Contact Number
+          <input type="tel" id="contactNumber" required>
+        </label>
+        <label>Emergency Type
+          <select id="emergencyType">
+            <option>Medical</option>
+            <option>Trauma</option>
+            <option>Cardiac</option>
+            <option>Other</option>
+          </select>
+        </label>
+        <label>Preferred Hospital
+          <input type="text" id="preferredHospital">
+        </label>
+
+        <p class="muted">Click on the map to set Pickup Location (first click) and Destination Hospital (second click).</p>
+        <div id="coords" class="coords">Pickup: <span id="pickupCoord">n/a</span> — Destination: <span id="destCoord">n/a</span></div>
+
+        <button type="submit" class="btn primary">Confirm Booking</button>
+        <div id="result" class="result" role="status" aria-live="polite"></div>
+      </form>
+
+      <div id="map" class="card map"></div>
+    </div>
+  </main>
+
+  <footer class="container footer">
+    <p>&copy; Ambulance Booking System</p>
+  </footer>
+
+  <script src="/assets/js/booking.js"></script>
+</body>
+</html>
