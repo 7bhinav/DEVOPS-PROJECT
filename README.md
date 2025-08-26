@@ -1,57 +1,94 @@
-🚑 Ambulance Booking System
-A static web demo for booking ambulances with an Uber-like experience.
+# 🚑 Ambulance Booking System
+
+A static web demo for booking ambulances with an Uber-like experience.  
 Features responsive design, map-based booking, and Docker/Jenkins deployment.
-Table of Contents
-	•	Features
-	•	Demo Screenshots
-	•	Quickstart (Docker)
-	•	Jenkins CI/CD Pipeline
-	•	Project Structure
-	•	Tech Stack
-	•	Customization
-	•	Next Steps
-	•	License
-Features
-	•	Home page: Clear call-to-action for booking an ambulance.
-	•	Booking page: Intuitive form with Leaflet/OpenStreetMap map for selecting pickup and destination.
-	•	About & Contact pages: Informative and easy to access.
-	•	Responsive Design: Optimized for mobile, visually themed (red/blue/white).
-	•	Static demo: No backend, suitable for containerized deployment.
-Demo Screenshots
-		Screenshots/demos should be added here, or use GIFs if available.
-Quickstart (Docker)
-Follow these steps to run the Ambulance Booking System locally with Docker:
-# 1. Clone the repository
-git clone <repo-url>
-cd <repo-folder>
 
-# 2. Build the Docker image
-docker build -t ambulance-booking .
+---
 
-# 3. Start the container (host port 8080 → container port 80)
-docker run -d -p 8080:80 --name ambulance-review ambulance-booking
+## Table of Contents
 
-# 4. Open in browser
-http://localhost:8080
+- [Features](#features)
+- [Demo Screenshots](#demo-screenshots)
+- [Quickstart (Docker)](#quickstart-docker)
+- [Jenkins CI/CD Pipeline](#jenkins-cicd-pipeline)
+- [Project Structure](#project-structure)
+- [Tech Stack](#tech-stack)
+- [Customization](#customization)
+- [Next Steps](#next-steps)
+- [License](#license)
+
+---
+
+## Features
+
+- **Home page:** Clear call-to-action for booking an ambulance.
+- **Booking page:** Intuitive form with Leaflet/OpenStreetMap map for selecting pickup and destination.
+- **About & Contact pages:** Informative and easy to access.
+- **Responsive Design:** Optimized for mobile, visually themed (red/blue/white).
+- **Static demo:** No backend, suitable for containerized deployment.
+
+---
+
+## Demo Screenshots
+
+> Add screenshots or demo GIFs here to showcase the UI and booking workflow.
+
+---
+
+## Quickstart (Docker)
+
+Run the Ambulance Booking System locally using Docker:
+
+---
+
+## Jenkins CI/CD Pipeline
+
+A basic Jenkins pipeline automates the build and run steps:
+
+1. **Checkout:** Clone repo from source control.
+2. **Build Docker Image:** Build as `ambulance-booking`.
+3. **Run Container:** Bind container port 80 to host port 8080.
+
+> Setup: Point your Jenkins job to this repo and run the included `Jenkinsfile`.  
+> You can extend this pipeline with stages for testing, cleanup, image publishing, and production deployment.
+
+---
 
 
-Jenkins CI/CD Pipeline
-A basic Jenkins pipeline automates the build/run steps:
-	1.	Checkout: Clone repo from source control.
-	2.	Build Docker Image: Build as  ambulance-booking .
-	3.	Run Container: Bind container port 80 to host port 8080.
-		To set up, point your Jenkins job to this repo and run the included  Jenkinsfile .
-You can extend this pipeline with stages for testing, cleanup, image publish, and deployment.
 
-Tech Stack
-	•	Frontend: HTML, CSS (mobile-first, themed), JavaScript, Leaflet/OpenStreetMap
-	•	Container: nginx (alpine)
-	•	CI/CD: Docker, Jenkins (with Docker Pipeline plugin)
-Customization
-	•	Update visuals by editing  /src  files.
-	•	To add backend, integrate REST API and update the frontend fetch logic.
-	•	For production, add authentication, persistent booking storage, dispatch systems, and operational analytics.
-Next Steps
-	•	Enable authentication and secure data management.
-	•	Connect a backend for real ambulance dispatch and tracking.
-	•	Extend CI/CD to push images to a registry, automate testing, and implement blue/green or rolling deployment strategies.
+## Tech Stack
+
+- **Frontend:** HTML, CSS (mobile-first, themed), JavaScript, Leaflet/OpenStreetMap
+- **Container:** nginx (alpine)
+- **CI/CD:** Docker, Jenkins (with Docker Pipeline plugin)
+
+---
+
+## Customization
+
+- Edit `/src` files to update visuals and UI.
+- Add backend by integrating a REST API and updating frontend logic.
+- For production, add authentication, booking persistence, dispatch systems, and analytics.
+
+---
+
+## Next Steps
+
+- Enable authentication and enforce secure data management.
+- Connect a backend for real ambulance dispatch and live tracking.
+- Extend CI/CD: Push images to a registry, automate testing, and use blue/green or rolling deployment strategies.
+
+---
+
+## License
+
+This project is licensed under the MIT License.
+
+---
+
+> Have feedback, questions, or want to contribute?  
+Open an issue or contact the maintainers!
+
+
+ 
+ 
